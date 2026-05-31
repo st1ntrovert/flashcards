@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Флэшкарты — Модуль 10</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#242736;--border:#2d3147;
+  --accent:#6c63ff;--accent2:#4ecca3;--text:#e8eaf6;--muted:#8891b2;
+  --danger:#ff6b6b;--r:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:90px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;position:sticky;top:0;z-index:100}
+.hinner{max-width:1200px;margin:0 auto}
+h1{font-size:17px;font-weight:700;color:var(--accent);margin-bottom:10px}
+.search{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:var(--text);font-size:14px;margin-bottom:10px;outline:none;transition:border-color .2s}
+.search:focus{border-color:var(--accent)}
+.filters{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.filters::-webkit-scrollbar{display:none}
+.fbtn{white-space:nowrap;padding:5px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;flex-shrink:0}
+.fbtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.fbtn:hover:not(.active){border-color:var(--accent);color:var(--text)}
+.pbar{height:3px;background:var(--border);border-radius:2px;margin-top:8px}
+.pfill{height:100%;background:var(--accent2);border-radius:2px;transition:width .4s}
+.stats{font-size:11px;color:var(--muted);margin-top:4px}
+.train-btn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:7px 16px;border-radius:20px;border:none;background:linear-gradient(135deg,#6c63ff,#4ecca3);color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:transform .2s,opacity .2s}
+.train-btn:hover{transform:scale(1.04);opacity:.9}
+.train-btn:active{transform:scale(.97)}
+
+/* Training overlay */
+#tov{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .25s}
+#tov.open{opacity:1;pointer-events:all}
+.t-header{width:100%;padding:14px 16px 10px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.t-close{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.t-close:hover{color:var(--text)}
+.t-prog-wrap{flex:1}
+.t-pbar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.t-pfill{height:100%;background:linear-gradient(90deg,#6c63ff,#4ecca3);border-radius:3px;transition:width .4s}
+.t-count{font-size:12px;color:var(--muted);margin-top:4px;text-align:right}
+.t-stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.t-card{width:calc(100% - 48px);max-width:480px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;min-height:260px;display:flex;flex-direction:column;cursor:pointer;position:absolute;user-select:none;touch-action:pan-y;will-change:transform;transition:box-shadow .2s}
+.t-card.dragging{transition:none}
+.t-topic{font-size:11px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.t-q{font-size:16px;font-weight:500;line-height:1.6;flex:1}
+.t-flip-hint{font-size:12px;color:var(--muted);margin-top:16px;text-align:center}
+.t-answer{display:none}
+.t-answer.visible{display:block}
+.t-divider{height:1px;background:var(--border);margin:14px 0}
+.t-alabel{font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.t-atext{font-size:14px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto;scrollbar-width:thin;color:var(--text)}
+.t-atext::-webkit-scrollbar{width:3px}
+.t-atext::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+/* swipe hints */
+.t-hints{display:flex;justify-content:space-between;width:calc(100% - 48px);max-width:480px;margin-top:14px;flex-shrink:0}
+.t-hint-l,.t-hint-r{font-size:12px;padding:4px 12px;border-radius:20px;border:1px solid;opacity:.5}
+.t-hint-l{color:var(--danger);border-color:var(--danger)}
+.t-hint-r{color:var(--accent2);border-color:var(--accent2)}
+/* swipe indicators */
+.t-indicator{position:absolute;top:50%;transform:translateY(-50%);font-size:48px;opacity:0;transition:opacity .15s;pointer-events:none}
+#tind-l{left:12px}
+#tind-r{right:12px}
+/* ghost cards behind */
+.t-ghost{position:absolute;width:calc(100% - 48px);max-width:480px;background:var(--surface2);border:1px solid var(--border);border-radius:16px;pointer-events:none}
+.t-ghost1{height:20px;bottom:-12px;opacity:.5;transform:scale(.95)}
+.t-ghost2{height:20px;bottom:-20px;opacity:.25;transform:scale(.9)}
+/* finish screen */
+.t-finish{display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:32px 24px;flex:1}
+.t-finish.visible{display:flex}
+.t-finish h2{font-size:24px;font-weight:700}
+.t-finish p{color:var(--muted);font-size:14px}
+.t-finish-btns{display:flex;flex-direction:column;gap:10px;width:100%;max-width:280px}
+/* buttons below card */
+.t-actions{display:flex;gap:16px;margin-top:16px;flex-shrink:0}
+.t-action{width:64px;height:64px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;background:transparent;transition:all .2s}
+.t-action:active{transform:scale(.9)}
+.t-action.no{border-color:var(--danger);color:var(--danger)}
+.t-action.no:hover{background:var(--danger)22}
+.t-action.yes{border-color:var(--accent2);color:var(--accent2)}
+.t-action.yes:hover{background:var(--accent2)22}
+.t-action:disabled{opacity:.3;pointer-events:none}
+main{max-width:1200px;margin:18px auto;padding:0 14px}
+.sec-title{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:12px;margin-top:24px;display:flex;align-items:center;gap:8px}
+.sec-title:first-child{margin-top:0}
+.cnt{background:var(--surface2);border-radius:10px;padding:2px 8px;font-size:11px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+
+/* Card flip */
+.card{perspective:1000px;height:170px;cursor:pointer;position:relative}
+.ci{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .4s ease}
+.card.flipped .ci{transform:rotateY(180deg)}
+.cf,.cb{position:absolute;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:var(--r);padding:14px;display:flex;flex-direction:column;overflow:hidden}
+.cf{background:var(--surface);border:1px solid var(--border);justify-content:space-between;transition:border-color .2s}
+.card:hover .cf{border-color:var(--accent)88}
+.cb{background:var(--surface2);border:1px solid var(--accent)44;transform:rotateY(180deg);justify-content:flex-start}
+.ctopic{font-size:10px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.cq{font-size:13px;font-weight:500;line-height:1.5;flex:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+.chint{font-size:10px;color:var(--muted);margin-top:6px;opacity:.7}
+.alabel{font-size:10px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.ca{font-size:12px;line-height:1.6;overflow-y:auto;flex:1;color:var(--text);white-space:pre-wrap;scrollbar-width:thin}
+.ca::-webkit-scrollbar{width:3px}
+.ca::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.del-btn{position:absolute;top:7px;right:7px;width:20px;height:20px;border-radius:50%;background:var(--danger)22;border:none;color:var(--danger);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;z-index:10;line-height:1}
+.card:hover .del-btn{opacity:1}
+
+/* FAB */
+.fab{position:fixed;bottom:22px;right:20px;width:54px;height:54px;border-radius:50%;background:var(--accent);border:none;color:#fff;font-size:28px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;transition:transform .2s,background .2s;z-index:200}
+.fab:hover{transform:scale(1.1);background:#5a52d5}
+.fab:active{transform:scale(.95)}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:flex;align-items:flex-end;justify-content:center;padding:0;opacity:0;pointer-events:none;transition:opacity .25s}
+@media(min-width:600px){.overlay{align-items:center;padding:20px}}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px 16px 0 0;padding:22px 20px 30px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .3s ease}
+@media(min-width:600px){.modal{border-radius:16px;transform:translateY(30px)}}
+.overlay.open .modal{transform:translateY(0)}
+.modal h2{font-size:17px;margin-bottom:18px}
+.fg{margin-bottom:14px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;resize:vertical;transition:border-color .2s}
+textarea:focus,select:focus{border-color:var(--accent)}
+.brow{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.btn{padding:9px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.bp{background:var(--accent);color:#fff}.bp:hover{background:#5a52d5}
+.bs{background:var(--surface2);color:var(--muted)}.bs:hover{color:var(--text)}
+
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+
+@media(max-width:480px){
+  .grid{grid-template-columns:1fr}
+  .card{height:155px}
+  h1{font-size:15px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="hinner">
+    <h1>📚 Модуль 10 — Флэшкарты</h1>
+    <input class="search" id="si" placeholder="🔍 Поиск по вопросам..." autocomplete="off">
+    <div class="filters" id="filters"></div>
+    <div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div>
+    <div class="stats" id="st"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="train-btn" id="trainBtn15">⚡ 15 вопросов</button>
+      <button class="train-btn" id="trainBtn30">🎯 30 вопросов</button>
+    </div>
+  </div>
+</header>
+<main id="main"></main>
+<button class="fab" id="addBtn">+</button>
+<!-- Training overlay -->
+<div id="tov">
+  <div class="t-header">
+    <button class="t-close" id="tclose">✕</button>
+    <div class="t-prog-wrap">
+      <div class="t-pbar"><div class="t-pfill" id="tpf" style="width:0%"></div></div>
+      <div class="t-count" id="tcnt"></div>
+    </div>
+  </div>
+  <div class="t-stage" id="tstage">
+    <div class="t-ghost t-ghost2" id="tg2"></div>
+    <div class="t-ghost t-ghost1" id="tg1"></div>
+    <div class="t-card" id="tcard">
+      <div class="t-topic" id="ttopic"></div>
+      <div class="t-q" id="tq"></div>
+      <div class="t-flip-hint" id="thint">👆 Нажмите, чтобы увидеть ответ</div>
+      <div class="t-answer" id="tans">
+        <div class="t-divider"></div>
+        <div class="t-alabel">Ответ</div>
+        <div class="t-atext" id="tatext"></div>
+      </div>
+    </div>
+    <div class="t-indicator" id="tind-l">❌</div>
+    <div class="t-indicator" id="tind-r">✅</div>
+    <!-- finish -->
+    <div class="t-finish" id="tfinish">
+      <div style="font-size:56px">🎉</div>
+      <h2>Тренировка завершена!</h2>
+      <p id="tfinmsg"></p>
+      <div class="t-finish-btns">
+        <button class="btn bp" id="tfinrepeat">🔄 Ещё раз</button>
+        <button class="btn bs" id="tfinclose">Выйти</button>
+      </div>
+    </div>
+  </div>
+  <div class="t-hints" id="thints">
+    <span class="t-hint-l">← Не знал</span>
+    <span class="t-hint-r">Знал →</span>
+  </div>
+  <div class="t-actions" id="tactions">
+    <button class="t-action no" id="tno" title="Не знал">✕</button>
+    <button class="t-action yes" id="tyes" title="Знал">✓</button>
+  </div>
+</div>
+
+<div class="overlay" id="ov">
+  <div class="modal">
+    <h2>➕ Добавить карточку</h2>
+    <div class="fg"><label>Тема</label><select id="mt"></select></div>
+    <div class="fg"><label>Вопрос</label><textarea id="mq" rows="3" placeholder="Введите вопрос..."></textarea></div>
+    <div class="fg"><label>Ответ</label><textarea id="ma" rows="4" placeholder="Введите ответ..."></textarea></div>
+    <div class="brow">
+      <button class="btn bs" id="cn">Отмена</button>
+      <button class="btn bp" id="sv">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SECTIONS = [
+{id:'autotests',name:'Автотесты',emoji:'🚀',cards:[
+{q:'Что проверяют автотесты?',a:'Функциональность, стабильность, поведение системы в разных условиях.'},
+{q:'Как понять, что тест написан хорошо?',a:'Он изолирован, стабилен, воспроизводим, читаем, имеет высокую скорость выполнения и повторяем.'},
+{q:'Как ты определяешь приоритет тестов?',a:'По критичности функции, рискам, частоте использования и бизнес-ценности.'},
+{q:'Что обычно проверяешь в негативных тестах?',a:'Проверка отказов: валидации, ошибки авторизации, запреты, доступность, неверные форматы.'},
+{q:'Как протестировать интеграцию с другим сервисом, если его логика еще не готова?',a:'Использовать моки и заглушки: pytest-mock, requests-mock.'},
+{q:'Что такое PageObject и зачем он нужен?',a:'Паттерн, который выносит взаимодействие с элементами UI в отдельные классы — код читаем и переиспользуем.'},
+{q:'Чем отличается PageObject от StepObject?',a:'PageObject — работа с элементами. StepObject — вынос шагов бизнес-логики.'},
+{q:'Как сделать автотесты масштабируемыми?',a:'Выделить слои: API/DB/UI, Page/Step/Test, использовать фикстуры и утилиты.'},
+{q:'Какие есть признаки плохой архитектуры автотестов?',a:'Копипаст, тесная связка между слоями, сложность понимания шагов, всё в одном файле, игнорирование ООП и SOLID.'},
+{q:'Какие есть принципы архитектуры автотестов?',a:'Разделение слоев, DRY, KISS, SOLID и ООП, изоляция тестов, фикстуры, логирование и отчеты.'},
+{q:'Какие библиотеки используешь в автотестах?',a:'Pytest, Playwright, requests, allure-pytest, faker, pytest-mock, pydantic, sqlalchemy.'},
+{q:'Чем Playwright лучше Selenium?',a:'Более современен, быстрее, встроенные ожидания, легко работать с iframe и вкладками, изолированные контексты, page.route для мокирования.'},
+{q:'Как ты запускаешь тесты?',a:'Локально — через pytest. В CI — через пайплайн по merge, cron, тегам.'},
+{q:'Как ты тестируешь API?',a:'Через requests, проверяю статус-коды, тело ответа, используя отдельные фикстуры и модели.'},
+{q:'Как валидируешь JSON в API-тестах?',a:'Через Pydantic-модель или jsonschema.'},
+{q:'Как мокируешь сторонние вызовы?',a:'Чаще всего pytest-mock, также responses.'},
+{q:'Что такое flaky-тест?',a:'Нестабильный тест, который дает разные результаты — может проходить, а может падать.'},
+{q:'Как определить flaky-тест?',a:'Использовать reruns, анализировать Allure-отчет, метки @pytest.mark.flaky.'},
+{q:'Как борешься с flaky-тестами?',a:'Проверяю данные, фикстуры, явные ожидания в UI, логи и окружение, мокирую внешние сервисы, изолирую тестовые данные.'},
+{q:'Как организован запуск тестов в CI?',a:'GitLab CI: по push в репозиторий, ночной регресс в 2:00, healthcheck каждые 4 часа, smoke/critical при push в репо автотестов.'},
+{q:'Как ускорять автотесты?',a:'Параллельный запуск (xdist), фильтрация по меткам, изоляция данных (yield), мокирование сторонних сервисов.'},
+{q:'Как подготавливать данные к тесту?',a:'Через data_generator и faker. Также через API и фикстуры.'},
+{q:'Как работали с БД в тестах?',a:'SQLAlchemy, ORM-модели через Pydantic.'},
+{q:'Как очищали данные после тестов?',a:'Удаляли через API, использовали yield в фикстурах.'},
+{q:'Как велась отчетность по тестам?',a:'Allure в пайплайне: описание, шаги, скриншоты.'},
+{q:'Что важно для отчета автотеста?',a:'Понять, где упал тест и почему. Локализовать падение и исправить его.'},
+{q:'Как понять, что автотесты дают ценность?',a:'Находят баги, сокращают время регресса, легко поддерживаются и запускаются в CI.'},
+{q:'Как внедрять автотесты на проект, где их не было?',a:'Анализ продукта и ручных кейсов, план тестирования, выбор фреймворка, описание архитектуры.'},
+{q:'Что бы ты автоматизировал, а что нет?',a:'Автоматизирую: повторяемые, стабильные, критичные, требующие много времени вручную. Не автоматизирую: разовые, с меняющейся логикой, нестабильные.'},
+{q:'Какие кейсы не подходят для автоматизации?',a:'Разовые, с меняющейся логикой, требующие много визуального контроля, нестабильные.'},
+{q:'Как тесты помогают бизнесу?',a:'Ускоряют релизы, уменьшают ручную нагрузку, снижают стоимость багов, повышают доверие к качеству.'},
+{q:'Что такое фикстуры?',a:'Специальные механизмы для подготовки, передачи и очистки данных, необходимых тестам.'},
+{q:'Для чего использовал фикстуры?',a:'Создание тестовых данных, открытие браузера, сессий, подключение к БД, передача параметров из конфига, инициализация API и токенов.'},
+{q:'Что такое headless и headed режимы?',a:'Headless — браузер в фоне (для CI, быстрее). Headed — с окном (для отладки и визуального контроля).'},
+{q:'Что такое слоистая архитектура автотестов?',a:'Деление на уровни (UI/API/DB) и слои (PageObject/StepObject/Assertion/Fixtures). Упрощает поддержку и масштабирование.'},
+{q:'Как устроен твой конфиг / settings?',a:'Отдельный config.py, conftest.py, ENV-переменные, базовые URL, credentials. В CI переменные окружения передаются в рантайме.'},
+{q:'Используешь ли conftest.py и зачем?',a:'Да, для хранения глобальных фикстур, хуков, параметров и общих вспомогательных функций.'},
+{q:'Как тесты логируются?',a:'Через loguru или logging. Логи включают запросы, статус-коды, ошибки.'},
+{q:'Что делать, если нет доступа к БД для подготовки данных?',a:'Использовать API, моки, UI-подготовку.'},
+{q:'Как тестируешь нестабильную внешнюю интеграцию?',a:'Изолирую моком (pytest-mock, responses, playwright.route). Если нестабильна — retry-механика и логирование.'},
+{q:'Зачем использовать pytest.mark.parametrize?',a:'Избегать дублирования тестов с разными входными параметрами — компактно, расширяемо, читаемо.'},
+{q:'Как фильтровать тесты при запуске?',a:'Через -m (маркеры) и -k (ключевые слова).'},
+{q:'Как тестируешь авторизацию?',a:'Генерирую токен через login API, сохраняю в фикстуре, пробрасываю в заголовки. Тестирую позитив и негатив (истек, недействителен, нет прав).'},
+{q:'Как валидируешь поля с вложенной структурой в JSON?',a:'Pydantic-модели с вложенными схемами — типизируют вложенные поля, проверяют наличие, тип, обязательность.'},
+{q:'Какие метрики смотришь по автотестам?',a:'Flaky rate, pass/fail %, время прогона, покрытие регресса. Визуализация через Allure.'},
+{q:'Что добавляешь в Allure-отчет?',a:'Шаги, description, severity, ссылки на задачи, скриншоты, attach логов, кастомные названия.'},
+{q:'Что такое контрактное тестирование?',a:'Проверка соответствия данных от API заранее определённой схеме (JSON Schema, Pydantic). Помогает на границе между сервисами.'},
+{q:'Что такое test pyramid и зачем она нужна?',a:'Подход: больше юнитов, меньше UI. Поддерживает стабильность, скорость, изоляцию.'},
+{q:'Что такое тестовая документация и ведёшь ли её?',a:'Описание покрытия: структура, что проверяется, как запускать. Обычно README + Allure.'},
+]},
+{id:'softskills',name:'Soft Skills',emoji:'🧠',cards:[
+{q:'Расскажите о себе и о прежнем месте работы',a:'Опыт в автоматизации и ручном тестировании, построение фреймворков, CI/CD. Работал на видеоплатформе по подписке (Scrum, ~10 человек). Зона ответственности: UI/API автотесты, GitLab CI, моки, фикстуры, оптимизация, код-ревью.'},
+{q:'Почему ушли / хотите уйти с текущего места?',a:'Достиг локального потолка, хочу больше вовлеченности в техническое развитие.'},
+{q:'Почему выбрали именно QA?',a:'Системное мышление, аналитика, нравится улучшать качество продукта. Совмещает инженерию, анализ требований и работу с бизнес-логикой.'},
+{q:'Как работаете с разработчиками?',a:'Ежедневные встречи, помогаю локализовать и воспроизвести баги, подробно описываю проблемы.'},
+{q:'Что делать, если разработчик не согласен с багом?',a:'Уточняю по требованиям, показываю что именно не так, аргументирую. Цель — не спор, а поиск общего понимания.'},
+{q:'Как оцениваете задачи на тестирование?',a:'По сложности, покрытию, окружению, интеграциям. Разбиваем на подзадачи, оцениваем в часах / story points.'},
+{q:'Что делать, если не укладываетесь в сроки?',a:'Сообщить заранее, пересмотреть приоритеты, минимизировать риски.'},
+{q:'Обучали ли новых коллег?',a:'Объяснение продукта, бизнес-логики, архитектуры кода. Код-ревью и встречи для быстрого онбординга.'},
+{q:'Сложный конфликт с командой — что делать?',a:'Слушаю, выясняю корень проблемы, ищу нейтральное решение в кратчайшие сроки.'},
+{q:'В чём ваши сильные стороны?',a:'Структурность, аналитика, зрелость и умение разобраться в проблеме.'},
+{q:'Какие у вас слабые стороны?',a:'Раньше часто перерабатывал и брал на себя слишком много — не умел правильно оценивать задачи.'},
+{q:'Что вас мотивирует развиваться?',a:'Рост, изучение новых технологий, результат, повышение компетенции.'},
+{q:'Куда хотите развиваться?',a:'В сторону SDET или техлида. Нравится архитектура автотестов, CI/CD, инфраструктура.'},
+{q:'Как обучаетесь?',a:'Статьи, документация, разборы архитектур, конференции.'},
+{q:'Если баг попал в прод — что делать?',a:'Сообщить команде, проверить логи, уточнить возможность отката.'},
+{q:'Что будете делать в первый рабочий день?',a:'Разберусь в продукте, окружении, архитектуре, познакомлюсь с командой.'},
+{q:'Главное достижение на прошлом месте',a:'Оптимизация E2E-тестов: с 40 минут до 12 минут, стабильность +80%. Внедрил фикстуры с генерацией данных, перенёс часть тестов в API, настроил параллельный запуск.'},
+{q:'Самый главный факап',a:'Тесты на регистрацию падали в CI из-за асинхронной загрузки CAPTCHA только на staging. Решение: явные ожидания и мок CAPTCHA.'},
+{q:'Самый интересный баг',a:'Календарь тормозил на последней неделе месяца из-за бесконечных запросов — ошибка в логике пагинации. Нашёл через DevTools Network.'},
+]},
+{id:'db',name:'Базы данных',emoji:'🗄️',cards:[
+{q:'Что такое база данных?',a:'Организованное хранилище данных, структурированных для эффективного управления, изменения и доступа.'},
+{q:'Что такое СУБД?',a:'Система управления БД — ПО для создания, чтения, обновления, удаления данных (CRUD), управления транзакциями и безопасностью.'},
+{q:'Что такое первичный ключ (Primary Key)?',a:'Уникальный идентификатор строки. Уникальный, NOT NULL, один на таблицу (может быть составным).'},
+{q:'Что такое внешний ключ (Foreign Key)?',a:'Поле, ссылающееся на первичный ключ другой таблицы. Обеспечивает ссылочную целостность и связь таблиц.'},
+{q:'Что такое нормализация?',a:'Структурирование таблиц для уменьшения дублирования данных, повышения целостности, избегания аномалий при обновлении.'},
+{q:'Что такое денормализация?',a:'Осознанное дублирование данных для ускорения чтения. Используется в аналитике и системах с преобладанием чтения.'},
+{q:'Что такое ACID?',a:'A — Atomicity (атомарность): всё или ничего.\nC — Consistency (согласованность): БД в корректном состоянии.\nI — Isolation (изолированность): параллельные транзакции не мешают.\nD — Durability (надёжность): зафиксированные данные сохраняются при сбоях.'},
+{q:'Какие JOIN знаете?',a:'INNER, LEFT, RIGHT, FULL, CROSS, SELF JOIN.'},
+{q:'Чем отличаются INNER, LEFT, RIGHT, FULL JOIN?',a:'INNER — только пересечение.\nLEFT — все из левой + совпадения справа.\nRIGHT — наоборот.\nFULL — всё из обеих + NULL там, где нет совпадений.'},
+{q:'Разница между WHERE и HAVING?',a:'WHERE фильтрует строки до группировки.\nHAVING фильтрует после группировки, работает с агрегатами.'},
+{q:'Что такое транзакция?',a:'Набор операций, выполняемых как единое целое (ACID).'},
+{q:'Уровни изоляции транзакций',a:'Read Uncommitted — все проблемы, максимальная скорость.\nRead Committed — нет грязного чтения (default у многих СУБД).\nRepeatable Read — нет неповторяющегося чтения (default MySQL).\nSerializable — запрещает все проблемы, минимальная скорость.'},
+{q:'Что такое индексы?',a:'Структуры данных (обычно B-Tree), ускоряющие поиск, но замедляющие вставку и обновление.'},
+{q:'Какие бывают индексы?',a:'B-tree, Hash, Bitmap, Full-text, GiST/GIN (PostgreSQL), уникальные/неуникальные, составные.'},
+{q:'Как посмотреть explain-план?',a:'EXPLAIN SELECT ...\nEXPLAIN ANALYZE SELECT ...'},
+{q:'Разница между DELETE, TRUNCATE и DROP?',a:'DELETE — удаляет строки, можно откатить.\nTRUNCATE — быстрая очистка таблицы.\nDROP — удаляет таблицу целиком.'},
+{q:'Как посчитать количество записей?',a:'SELECT COUNT(*) FROM table;'},
+{q:'Что такое агрегатные функции?',a:'SUM, AVG, MIN, MAX, COUNT — работа с группами данных.'},
+{q:'Что такое оконные функции?',a:'Вычисляют агрегаты по «окну», не группируя строки.\nПример: SELECT salary, SUM(salary) OVER() FROM employees;'},
+{q:'Что такое SQL-инъекция? Как избежать?',a:'Вставка вредоносного SQL. Защита: prepared statements, параметризация запросов, валидация ввода.'},
+{q:'Что такое deadlock? Как избежать?',a:'Две транзакции ждут друг друга, обе блокируются.\nИзбежать: одинаковый порядок блокировок, короткие транзакции, меньшая гранулярность.'},
+{q:'Какие типы данных в БД знаете?',a:'INT, BIGINT, DECIMAL, VARCHAR, TEXT, DATE, TIMESTAMP, BOOLEAN, JSON/JSONB, BLOB, ENUM.'},
+{q:'Отличие реляционных и нереляционных БД?',a:'Реляционные — таблицы, строгая схема, SQL (PostgreSQL).\nНереляционные — документы/графы/ключ-значение, гибкая схема (MongoDB).'},
+{q:'Для чего нужен GROUP BY?',a:'Группирует строки по полю и позволяет применять агрегатные функции.'},
+{q:'Зачем используется ORDER BY?',a:'Сортировка результата запроса.'},
+{q:'Для чего применяют DISTINCT?',a:'Убирает дубликаты строк.'},
+{q:'Отличие LIMIT и OFFSET?',a:'LIMIT — количество строк. OFFSET — пропустить N строк.'},
+{q:'Отличие UNION от UNION ALL?',a:'UNION — убирает дубликаты. UNION ALL — оставляет дубликаты, работает быстрее.'},
+{q:'Отличие UNION от JOIN?',a:'JOIN объединяет строки по полям (горизонтально).\nUNION объединяет результаты запросов вертикально.'},
+{q:'Что такое NULL в БД?',a:'Отсутствие значения. НЕ равно 0 и НЕ равно пустой строке.'},
+{q:'Что такое триггер в БД?',a:'Код, автоматически выполняемый при INSERT, UPDATE или DELETE.'},
+{q:'Что такое хранимая процедура?',a:'Функция, хранящаяся в БД. Вызывается с параметрами, содержит логику (циклы, условия).'},
+{q:'Что такое грязное и фантомное чтение?',a:'Грязное: читаем незакоммиченные данные другой транзакции (если та сделает ROLLBACK — данные окажутся несуществующими).\nФантомное: повторный запрос видит новые строки, которых раньше не было.'},
+]},
+{id:'docker',name:'Docker',emoji:'🐳',cards:[
+{q:'Что такое Docker и зачем нужен?',a:'Платформа контейнеризации: упаковывает приложение со всеми зависимостями. Даёт одинаковую среду Dev/QA/Prod, быстрый деплой, изоляцию, переносимость.'},
+{q:'Что такое образ и контейнер?',a:'Image (образ) — шаблон из слоёв + конфигурации.\nContainer (контейнер) — запущенный экземпляр образа.\nImage = чертёж, Container = дом по чертежу.'},
+{q:'Что такое Dockerfile?',a:'Текстовый файл с инструкциями сборки образа:\nFROM, COPY, RUN, EXPOSE, CMD/ENTRYPOINT.\nDockerfile → docker build → image.'},
+{q:'Что такое многоступенчатая сборка?',a:'Multi-stage build — несколько блоков FROM в одном Dockerfile. Собираем в одном контейнере, копируем артефакты в чистый образ → меньший размер.'},
+{q:'Что такое docker volume?',a:'Внешний по отношению к контейнеру каталог. Сохраняет данные при удалении контейнера, шарит данные между контейнерами.'},
+{q:'Чем отличается CMD от ENTRYPOINT?',a:'CMD — дефолтная команда, можно переопределить при docker run.\nENTRYPOINT — точка входа, почти невозможно переопределить.'},
+{q:'Что такое слой в image?',a:'Каждая команда Dockerfile создаёт слой. Слои кешируются, переиспользуются, immutable.'},
+{q:'Можно ли изменить образ после сборки?',a:'Нет, image immutable. Только собрать новый.'},
+{q:'Что такое docker network?',a:'Виртуальная сеть для взаимодействия контейнеров между собой.'},
+{q:'Какие типы сетей в Docker знаете?',a:'bridge (дефолт), host (сеть хоста), none (без сети), overlay (Swarm), macvlan (контейнер как отдельный хост).'},
+{q:'Как Docker изолирует контейнеры?',a:'namespaces (PID, NET, MNT, UTS, USER), cgroups (лимиты CPU/RAM), chroot (файловая система), overlayfs (слои).'},
+{q:'Как смотреть ресурсы контейнеров?',a:'docker stats\ndocker stats <container_id>'},
+{q:'Что такое docker inspect?',a:'Выводит полный JSON о контейнере: ENV, Cmd, Entrypoint, NetworkSettings, Mounts, State, LogPath, HostConfig.Resources.'},
+{q:'Как дебажить контейнер, который сразу падает?',a:'docker logs <id>\ndocker run -it --entrypoint bash <image>\nПроверить зависимости.'},
+{q:'Как посмотреть env переменные контейнера?',a:'docker exec <id> env'},
+{q:'Как посмотреть все запущенные контейнеры?',a:'docker ps'},
+{q:'Как посмотреть все контейнеры (включая остановленные)?',a:'docker ps -a'},
+{q:'Как запустить контейнер в фоне с пробросом порта?',a:'docker run -d -p 8080:80 nginx'},
+{q:'Как зайти внутрь контейнера?',a:'docker exec -it <container_id> bash'},
+{q:'Как посмотреть логи контейнера?',a:'docker logs <container_id>'},
+{q:'Как удалить контейнер / образ?',a:'docker rm <container_id>\ndocker rmi <image_id>'},
+{q:'Как удалить все остановленные контейнеры?',a:'docker container prune'},
+{q:'Как посмотреть историю слоёв образа?',a:'docker history <image>'},
+{q:'Как поднять приложение через docker-compose?',a:'docker-compose up -d'},
+{q:'Как остановить все из docker-compose?',a:'docker-compose down'},
+{q:'Как остановить, запустить, перезапустить контейнер?',a:'docker stop <id>\ndocker start <id>\ndocker restart <id>'},
+{q:'Как смотреть логи в реальном времени?',a:'docker logs -f <id>'},
+{q:'Как подключиться интерактивно?',a:'docker exec -it <id> bash'},
+{q:'Как посмотреть подробности о сети?',a:'docker network inspect <network_name>'},
+{q:'Как посмотреть тома?',a:'docker volume ls\ndocker volume inspect <volume_name>'},
+{q:'Как примонтировать том в контейнер?',a:'docker run -d -v my_volume:/data nginx'},
+]},
+{id:'k8s',name:'Kubernetes',emoji:'☸️',cards:[
+{q:'Что такое Kubernetes и зачем нужен?',a:'Платформа оркестрации контейнеров: управляет запуском, масштабированием, обновлениями, сетью и хранилищем.'},
+{q:'Что такое Pod?',a:'Минимальная единица развёртывания. Содержит один или несколько контейнеров, делящих сеть и тома.'},
+{q:'Что такое Deployment?',a:'Объект, описывающий желаемое состояние Pod\'ов. Kubernetes создаёт/удаляет Pod\'ы для поддержания нужного числа реплик. Поддерживает rollout/rollback.'},
+{q:'Чем отличается Deployment от StatefulSet?',a:'Deployment — для stateless, Pod\'ы идентичны.\nStatefulSet — для stateful (БД, кэш): сохраняет идентичность Pod\'а (имя, volume), ordered update.'},
+{q:'Что такое ReplicaSet?',a:'Объект, следящий за количеством Pod\'ов. Deployment использует ReplicaSet «под капотом».'},
+{q:'Что такое ConfigMap и Secret?',a:'ConfigMap — конфигурационные данные (не секретные).\nSecret — чувствительные данные (пароли, токены, base64).'},
+{q:'Что такое Service и какие типы бывают?',a:'Абстракция доступа к Pod\'ам.\nClusterIP — внутри кластера.\nNodePort — через порт ноды.\nLoadBalancer — облачный LB.\nExternalName — CNAME для внешнего сервиса.'},
+{q:'Что такое Ingress?',a:'Управляет внешним HTTP/HTTPS трафиком, host/path routing, TLS termination. Направляет трафик на Service.'},
+{q:'Для чего kubectl port-forward?',a:'Пробрасывает порт пода на локальную машину для тестирования без внешнего Service/LoadBalancer.'},
+{q:'Что такое Namespace?',a:'Виртуальное пространство имён для изоляции ресурсов (dev, staging, prod). Позволяет ограничивать доступ и ресурсы.'},
+{q:'Что такое DaemonSet?',a:'Гарантирует, что каждая нода запускает копию Pod. Используется для логирования, мониторинга, сетевых агентов.'},
+{q:'Что такое Helm?',a:'Менеджер пакетов для Kubernetes. Деплой через charts, управление версиями и зависимостями.'},
+{q:'Что такое api-server в кубере?',a:'Главный компонент control plane: обрабатывает REST-запросы kubectl, сохраняет состояние в etcd, все запросы проходят через него.'},
+{q:'Что хранится в etcd?',a:'Состояние кластера: Pods, Deployments, ConfigMaps, Secrets, Services, метаданные.'},
+{q:'Зачем нужны labels и selectors?',a:'Labels — ключ-значение для идентификации объектов.\nSelectors — фильтруют объекты по labels.'},
+{q:'Что такое CronJob?',a:'Запуск Pod по расписанию (как cron). Для тестов, бэкапов, генерации отчётов.'},
+{q:'Что такое LivenessProbe и ReadinessProbe?',a:'LivenessProbe — «живой ли контейнер», перезапускает при падении.\nReadinessProbe — готов ли Pod принимать трафик, если нет — исключается из Service endpoints.'},
+{q:'Как дебажить Pod, который падает?',a:'kubectl describe pod <pod>\nkubectl logs <pod>\nkubectl exec -it <pod> -- bash\nПроверить readiness/liveness, env, volumeMounts, сеть.'},
+{q:'Для чего kubectl apply?',a:'Создаёт или обновляет ресурс, приводя состояние к описанному в YAML.'},
+{q:'Что такое kubelet?',a:'Агент на worker-ноде: следит за Pod\'ами, запускает контейнеры через runtime, отчитывается api-server.'},
+{q:'Отличие create от apply?',a:'create — создаёт ресурс с нуля (ошибка, если уже существует).\napply — создаёт или обновляет существующий ресурс.'},
+{q:'Что такое master node и worker node?',a:'Master Node: kube-apiserver, etcd, scheduler, controller.\nWorker Node: kubelet, kube-proxy, Container Runtime.'},
+{q:'Как посмотреть все поды в кластере?',a:'kubectl get pods'},
+{q:'Как посмотреть поды в конкретном namespace?',a:'kubectl get pods -n <namespace>'},
+{q:'Как посмотреть описание пода?',a:'kubectl describe pod <pod-name> -n <namespace>'},
+{q:'Как посмотреть логи пода?',a:'kubectl logs <pod-name> -n <namespace>'},
+{q:'Как зайти внутрь контейнера пода?',a:'kubectl exec -it <pod-name> -- bash'},
+{q:'Как применить манифест?',a:'kubectl apply -f <file.yaml>'},
+{q:'Как масштабировать deployment?',a:'kubectl scale deployment <name> --replicas=5 -n <namespace>'},
+{q:'Как посмотреть все ресурсы в namespace?',a:'kubectl get all -n <namespace>'},
+{q:'Как посмотреть события в кластере?',a:'kubectl get events -A --sort-by=.metadata.creationTimestamp'},
+]},
+{id:'git',name:'Git',emoji:'🌿',cards:[
+{q:'Что такое commit? Что хранит Git?',a:'Снимок состояния проекта. Хранит: хеш, ссылку на tree-объект, ссылки на родителей, автора, дату, сообщение.'},
+{q:'Разница между git pull и git fetch?',a:'git fetch — скачать изменения, не применять.\ngit pull = git fetch + git merge.'},
+{q:'Разница между git merge и git rebase?',a:'merge — создаёт merge-коммит, история ветвистая, безопасен.\nrebase — переписывает историю, делает её линейной, перемещает коммиты поверх другой ветки.'},
+{q:'Когда нельзя использовать rebase?',a:'Если ветка уже в общем репозитории и по ней работают другие люди — риск потери коммитов.'},
+{q:'Что такое fast-forward merge?',a:'Когда в ветке нет новых коммитов — Git просто перемещает указатель, без merge-коммита.'},
+{q:'Что такое HEAD в Git?',a:'Ссылка на текущий коммит или ветку, на которую он указывает.'},
+{q:'Что такое reflog?',a:'Хранит все перемещения HEAD, даже после reset --hard. Используется для восстановления потерянных коммитов.'},
+{q:'Что такое git gc?',a:'Garbage collector. Удаляет старые reflog записи, дубли слоёв, оптимизирует хранилище.'},
+{q:'Как восстановить удалённый коммит (reset --hard)?',a:'git reflog\ngit checkout <hash>\ngit branch restore/<name>'},
+{q:'Когда использовать reset, а когда revert?',a:'reset — изменяет историю, только локально.\nrevert — создаёт обратный коммит, безопасно, на общих ветках.'},
+{q:'Разница между reset --soft, --mixed, --hard?',a:'--soft — двигает только HEAD.\n--mixed — сбрасывает staging.\n--hard — сбрасывает staging + изменения в файлах (файлы исчезнут).'},
+{q:'Что делать, если нужно отменить merge-commit?',a:'git revert -m 1 <merge_commit_hash>'},
+{q:'Что такое cherry-pick?',a:'Переносит конкретный коммит из одной ветки в другую. Опасность: новый хеш, расходящаяся история, конфликты.'},
+{q:'Как происходит merge-conflict?',a:'Одни и те же строки изменены в разных ветках — Git не может выбрать правильную версию.'},
+{q:'Как решить merge-conflict?',a:'Открыть файл с маркерами, выбрать/объединить нужную версию, сделать git add, затем git commit.'},
+{q:'Как отменить rebase?',a:'git rebase --abort\nили git reflog + git reset --hard <hash>'},
+{q:'Зачем git remote prune?',a:'Удаляет старые ссылки на удалённые ветки: git remote prune origin'},
+{q:'Что делает git push --force?',a:'Переписывает историю в удалённой ветке. Опасно: можно потерять чужие коммиты, сломать CI.'},
+{q:'Как работают git hooks?',a:'Скрипты на события (pre-commit, pre-push, post-merge). В CI: линтеры, форматтеры, запрет секретов, тесты до пуша.'},
+{q:'Как найти коммит, который сломал сборку?',a:'git bisect:\ngit bisect start\ngit bisect good <hash>\ngit bisect bad <hash>\nБинарный поиск по коммитам.'},
+{q:'Как работает .gitignore?',a:'Определяет файлы, которые Git не отслеживает. Предотвращает добавление лишних файлов в репозиторий.'},
+{q:'Где хранить секретные данные?',a:'Vault, Secret Manager, .env (в репо нельзя!). Никогда не в git-истории.'},
+{q:'Как посмотреть состояние репозитория?',a:'git status'},
+{q:'Как посмотреть историю коммитов?',a:'git log'},
+{q:'Как спрятать текущие изменения?',a:'git stash — чтобы переключиться без коммита или убрать грязное состояние.'},
+{q:'Как посмотреть различия между версиями?',a:'git diff'},
+]},
+{id:'linux',name:'Linux',emoji:'🐧',cards:[
+{q:'Как найти файл по имени?',a:'find / -name "file.txt"'},
+{q:'Как найти строку в файле рекурсивно?',a:'grep -R "ERROR" .'},
+{q:'Как поменять права на файл?',a:'chmod 755 file'},
+{q:'Числовые значения прав chmod',a:'r=4, w=2, x=1. Три цифры: владелец + группа + остальные.\nПример: 755 = rwxr-xr-x'},
+{q:'Как посмотреть список процессов?',a:'ps aux'},
+{q:'Как убить процесс?',a:'kill <pid>\nkill -9 <pid>  (принудительно)'},
+{q:'Как посмотреть историю команд?',a:'history'},
+{q:'Как посмотреть последние N строк файла?',a:'tail -n 100 file.log'},
+{q:'Как смотреть логи в реальном времени?',a:'tail -f file.log'},
+{q:'Как узнать свой IP?',a:'ip a'},
+{q:'Как проверить статус сервиса?',a:'systemctl status nginx'},
+{q:'Как запустить/остановить сервис?',a:'systemctl start nginx\nsystemctl stop nginx'},
+{q:'Как посмотреть нагрузку CPU/Memory?',a:'top\nhtop (красивый вывод)\nfree -h'},
+{q:'Как распаковать архив?',a:'tar -xvf archive.tar'},
+{q:'Как посмотреть список всех файлов?',a:'ls -l'},
+{q:'Как посмотреть скрытые файлы?',a:'ls -a'},
+{q:'Как перейти в директорию?',a:'cd /path'},
+{q:'Как посмотреть текущий путь?',a:'pwd'},
+{q:'Как создать директорию?',a:'mkdir dir'},
+{q:'Как удалить файл / директорию?',a:'rm file\nrm -rf dir'},
+{q:'Как копировать файл?',a:'cp src dest'},
+{q:'Как переместить/переименовать файл?',a:'mv src dest'},
+{q:'Как вывести содержимое файла?',a:'cat filename'},
+{q:'Как вывести первые N строк файла?',a:'head -n 10 file'},
+{q:'Как проверить доступность хоста?',a:'ping host'},
+{q:'Как посмотреть открытые порты?',a:'netstat -tuln\nss -tuln'},
+{q:'Как узнать текущего пользователя?',a:'whoami'},
+{q:'Как изменить владельца файла?',a:'chown user:group file'},
+{q:'Как создать файл?',a:'touch "имя_файла"'},
+]},
+{id:'pytest',name:'pytest',emoji:'🧪',cards:[
+{q:'Что такое pytest?',a:'Фреймворк для автоматизации тестирования на Python: минималистичный синтаксис, гибкие фикстуры, плагинная архитектура, интеграция с CI/CD, мощная параметризация.'},
+{q:'Какие scope фикстур знаете?',a:'function — на каждый тест (default).\nclass — на класс тестов.\nmodule — на файл.\nsession — на всю сессию.'},
+{q:'Как работает autouse-фикстура?',a:'autouse=True — фикстура вызывается автоматически для всех тестов в своём scope без явного указания.'},
+{q:'Что такое yield в фикстуре?',a:'Разделяет setup (до yield) и teardown (после yield). Teardown выполняется даже если тест упал.'},
+{q:'Что такое factory-фикстуры?',a:'Фикстура возвращает функцию, позволяя генерировать данные/объекты динамически внутри теста.'},
+{q:'Как сделать параметризацию тестов?',a:'@pytest.mark.parametrize("x,y", [(1,2), (3,4)])\nЗапускает тест для каждого набора параметров.'},
+{q:'Как мокировать внешние сервисы в pytest?',a:'pytest-mock:\nmocker.patch("module.Class.method", return_value={...})\nmocker.patch.object(instance, "attr", new="value")\nmocker.spy(module, "func")'},
+{q:'Как ускорить тесты в pytest?',a:'pytest-xdist (параллельный запуск), session scope фикстуры, мокирование данных, кэширование, разделение по типам.'},
+{q:'Что такое xfail и skip?',a:'skip — пропускает тест: @pytest.mark.skip(reason="...")\nxfail — ожидаемо падающий: @pytest.mark.xfail(reason="...")\nНе ломает CI, фиксирует дефект.'},
+{q:'Как использовать маркеры?',a:'Прописать в pytest.ini:\n[pytest]\nmarkers = smoke\nregression\nИспользовать: @pytest.mark.smoke\nЗапуск: pytest -m "smoke and not regression"'},
+{q:'Как проверять исключения в pytest?',a:'with pytest.raises(ValueError):\n    func()\n\nС проверкой текста:\nwith pytest.raises(ValueError, match="invalid"):\n    func()'},
+{q:'Как запустить отдельный тест или группу?',a:'pytest tests/test_login.py::test_valid_login\npytest -m smoke\npytest -k "login"'},
+{q:'Что такое conftest.py?',a:'Файл с глобальными фикстурами, хуками и настройками. Pytest автоматически подхватывает его по дереву каталогов.'},
+{q:'Что такое pytest-hooks?',a:'pytest_runtest_setup — перед тестом.\npytest_sessionstart — старт сессии.\npytest_sessionfinish — завершение.\npytest_configure — настройка.\nДля кастомных репортов, логирования, авто-retry.'},
+{q:'Что такое pytest.ini?',a:'Глобальные настройки:\n[pytest]\nmarkers = smoke, regression\naddopts = -q -ra\ntestpaths = tests\nlog_cli = True'},
+{q:'Как минимизировать flaky-тесты?',a:'Стабильные wait, retry, мокирование нестабильных сервисов, изоляция и очистка данных, явные ожидания вместо sleep.'},
+]},
+{id:'playwright',name:'Playwright',emoji:'🎭',cards:[
+{q:'Что такое Playwright и чем отличается от Selenium?',a:'Фреймворк для UI-тестов. Управляет браузером напрямую, без WebDriver.\nПлюсы: встроенный auto-waiting, нативная работа с iframe/shadow DOM, изолированные контексты, network mocking, меньше flaky.'},
+{q:'Архитектура Playwright: Browser → Context → Page',a:'Browser — процесс браузера.\nContext — чистая сессия (как инкогнито), свои cookies/localStorage.\nPage — вкладка.\nПозволяет параллельные тесты без конфликтов.'},
+{q:'Для чего нужен BrowserContext?',a:'Чистая изолированная сессия: свои cookies, localStorage, заголовки, стейт авторизации. Предотвращает утечки между тестами, позволяет параллельность.'},
+{q:'Типы селекторов в Playwright',a:'get_by_... — рекомендуемый, семантический.\nCSS — стабильные.\nXPath — в редких случаях, хрупкие.'},
+{q:'Что такое auto-waiting?',a:'Playwright сам ждёт: пока элемент появится, будет видим, готов к клику, закончит анимацию. Каждая команда имеет встроенный retry.'},
+{q:'Чем отличается expect от wait_for..?',a:'expect() — assertions + авто-ретрай, проверяет состояние.\nwait_for_...() — низкоуровневые ожидания готовности.'},
+{q:'Почему нельзя time.sleep? Что вместо?',a:'time.sleep() вызывает flaky-тесты и блокировки.\nВместо: expect(locator).to_be_visible(), page.wait_for_load_state(), locator.wait_for(), page.wait_for_event()'},
+{q:'Как вынести авторизацию в фикстуру?',a:'Логин через API → сохранить storageState.\nВ фикстуре: browser.new_context(storage_state="state.json")'},
+{q:'Как замокать API в Playwright?',a:'page.route("**/api/user", lambda route: route.fulfill(\n  status=200,\n  body=json.dumps({"name": "Test"})\n))'},
+{q:'Как замедлить ответ от сервера?',a:'page.route("**/api/order", lambda route: route.fulfill(\n  status=200, body="{}", delay=2000\n))'},
+{q:'Как скачать файл через Playwright?',a:'with page.expect_download() as d:\n    page.click("button#export")\npath = d.value.path()'},
+{q:'Как работать с iframe?',a:'frame = page.frame(name="iframe-name")\nframe.locator("button").click()'},
+{q:'Как запустить тесты headless/headful?',a:'Headless — для CI (быстрее).\nHeadful — для дебага.\n--headless=false'},
+{q:'Как делать локаторы устойчивыми?',a:'Использовать get_by_... (семантические), избегать XPath и динамических селекторов.'},
+{q:'Плюсы и минусы Playwright',a:'Плюсы: быстрый, стабильный, мощный API, network mocking, изоляция контекстов, видео/трассировки.\nМинусы: много обновлений, сложнее на Windows, ресурсоёмкий.'},
+{q:'Как Playwright взаимодействует с DOM?',a:'Через Locator — ленивый объект, переискивает элемент, ждёт появления/рендера/стабильности. На низком уровне — DevTools Protocol.'},
+{q:'Как ускорить тесты Playwright?',a:'Данные готовить через API, быстрые селекторы, не перезапускать браузер на каждый тест, отключить трассировку, параллелизация.'},
+{q:'Как бороться с flaky-тестами?',a:'Явные ожидания, мокировать сеть, retry, изоляция контекстов.'},
+]},
+{id:'pydantic',name:'Pydantic',emoji:'🦾',cards:[
+{q:'Что такое Pydantic?',a:'Библиотека для валидации, преобразования и сериализации данных на основе type hints Python. Используется для контрактных тестов API, проверки структуры ответа, генерации payload.'},
+{q:'Чем Pydantic отличается от dataclass?',a:'dataclass — контейнер данных без валидации, типы как подсказка.\nPydantic — контракт данных: строгая валидация, автоконвертация типов.'},
+{q:'Что такое BaseModel?',a:'Базовый класс всех моделей Pydantic. Даёт: валидацию, сериализацию, работу с JSON, сравнение, конфигурацию.'},
+{q:'Что происходит при создании модели Pydantic?',a:'Принимаются данные, приводятся типы, выполняется валидация полей и валидаторы. При ошибке — ValidationError.'},
+{q:'Что такое ValidationError?',a:'Исключение со всеми ошибками валидации сразу. Возникает при: отсутствии поля, несовпадении типа, нарушении ограничений, срабатывании валидатора.'},
+{q:'Как проверить, что API не вернул лишние поля?',a:'Использовать extra="forbid" в Config — при лишних полях бросает ValidationError.'},
+{q:'Как сериализовать модель?',a:'В JSON: user.model_dump_json()\nВ dict: user.model_dump()'},
+{q:'Что такое Field?',a:'Метаданные + ограничения:\nage: int = Field(gt=0, lt=120)\nДля: ограничений, дефолтов, алиасов, документации.'},
+{q:'Что такое alias?',a:'Имя поля во входных/выходных данных, отличное от Python-имени:\nuser_id: int = Field(alias="userId")'},
+{q:'Можно ли наследовать Pydantic-модель?',a:'Да:\nclass Admin(BaseUser):\n    role: str\nДля ролей, разных ответов одного эндпоинта, базовых DTO.'},
+{q:'Что такое field_validator?',a:'Валидатор одного поля:\n@field_validator("email")\ndef check_email(cls, v):\n    assert "@" in v\n    return v'},
+{q:'Можно ли выбрасывать кастомные ошибки?',a:'Да: raise ValueError("Invalid email") внутри валидатора.'},
+{q:'Как сравнивать две Pydantic-модели?',a:'assert user1.model_dump() == user2.model_dump()'},
+{q:'Как Pydantic работает с datetime?',a:'Автоматически парсит ISO-форматы:\ncreated_at: datetime\nПоддерживает timezone, date, time.'},
+{q:'Как исключить поля при сериализации?',a:'user.model_dump(exclude={"password"})\nили Field(exclude=True)'},
+{q:'Как валидировать частичный ответ?',a:'User.model_validate(data, strict=False)\nили nullable поля: id: int | None = None'},
+]},
+{id:'python',name:'Python',emoji:'🐍',cards:[
+{q:'Что такое GIL?',a:'Global Interpreter Lock — блокировка, позволяющая одновременно исполнять байткод только одному потоку.\nВлияет на CPU-bound. Не влияет на I/O-bound задачи.'},
+{q:'Чем список отличается от кортежа?',a:'list — изменяемый.\ntuple — неизменяемый, быстрее, меньше памяти. Используется для гарантии неизменности.'},
+{q:'Что такое mutable и immutable типы?',a:'Mutable: list, dict, set.\nImmutable: int, float, str, tuple, frozenset.\nImmutable безопаснее и подходят для ключей хеш-таблиц.'},
+{q:'List comprehension vs генераторы',a:'List comprehension — создаёт весь список в памяти.\nGenerator — ленивый, выдаёт по одному. Экономит память.'},
+{q:'Как работают *args и **kwargs?',a:'*args — позиционные аргументы → кортеж.\n**kwargs — именованные аргументы → словарь.'},
+{q:'Что такое контекстный менеджер?',a:'Объект с методами __enter__ и __exit__. __exit__ выполняется всегда. Используется для ресурсов требующих закрытия (БД, файлы).'},
+{q:'Что такое декораторы?',a:'Функция, оборачивающая другую функцию. Используется для: retry, логирования, измерения времени, маркировки тестов.'},
+{q:'Разница между deepcopy и shallow copy?',a:'Shallow copy — копируются ссылки, изменения влияют на оригинал.\nDeepcopy — полная рекурсивная копия, независимая.'},
+{q:'Что такое MRO?',a:'Method Resolution Order — порядок поиска методов при наследовании. Алгоритм C3 linearization. D → B → C → A при множественном наследовании.'},
+{q:'Что такое dataclass?',a:'@dataclass — декларативный способ описать класс-данные. Даёт __init__, __eq__, __repr__. Без валидации (в отличие от Pydantic).'},
+{q:'Что такое абстрактные классы?',a:'Класс-контракт (abc). Нельзя создать экземпляр, пока не реализованы абстрактные методы. Используется для API-клиентов, стратегий, базовых PageObject.'},
+{q:'Что такое mixin?',a:'Класс с одной ответственностью, не используется сам по себе, расширяет поведение других классов.'},
+{q:'Разница между async/await и threading?',a:'async/await — один поток, event loop, конкурентность.\nthreading — несколько потоков, I/O хорошо, CPU ограничен GIL.'},
+{q:'Что такое event loop?',a:'Цикл, управляющий корутинами и запускающий их когда I/O готово. Без него async не работает.'},
+{q:'Можно ли await внутри обычной функции?',a:'Нет, await работает только внутри async def.'},
+{q:'Что такое lambda, map, filter?',a:'lambda — анонимная функция.\nmap — применить функцию ко всем элементам.\nfilter — оставить элементы, удовлетворяющие условию.'},
+{q:'Что такое чистая функция?',a:'Нет побочных эффектов, не изменяет внешнее состояние, при одинаковых аргументах — одинаковый результат. Легко тестировать и кэшировать.'},
+{q:'Как работать с файлом без утечек?',a:'with open("file.txt", "r") as f:\n    data = f.read()\n# Файл закрывается автоматически, даже при исключении.'},
+{q:'Чем assert pytest отличается от assert Python?',a:'Python assert можно отключить (-O), минимум информации.\nPytest assert: diff объектов, красивый вывод, подробные сообщения.'},
+{q:'Что такое MagicMock?',a:'Расширенный Mock с поддержкой магических методов (__len__, __call__). Мокирует сложные объекты — функции, коллекции.'},
+{q:'Как работает dict под капотом?',a:'Хеш-таблица: ключ → хеш → ячейка. Доступ O(1). Коллизии — поиск следующей свободной ячейки.'},
+{q:'Почему set быстрый?',a:'Хеш-таблица только с ключами (без значений). Поиск O(1), меньше итераций.'},
+{q:'Что такое генератор? Отличие от итератора?',a:'Генератор — упрощённый способ создать итератор через yield. Экономит память, возвращает значения по одному.'},
+{q:'Что делает yield?',a:'Возвращает значение из генератора, сохраняет состояние функции до следующего вызова.'},
+{q:'Что такое type hints и mypy?',a:'Type hints — аннотации типов в Python (не строгий язык). mypy — статический анализатор типов, используется в CI.'},
+{q:'Как работает замыкание?',a:'Функция запоминает переменные внешней области после её завершения:\ndef counter():\n    count = 0\n    def inc():\n        nonlocal count; count += 1; return count\n    return inc'},
+{q:'Как работает property?',a:'Доступ к методу как к атрибуту: user.age вместо user.age(). Инкапсуляция, контроль чтения/записи.'},
+{q:'Что такое ООП и зачем в автотестах?',a:'Способ структурировать код, масштабировать фреймворк, переиспользовать логику. Примеры: PageObject, API-клиенты, Steps.'},
+{q:'Принципы SOLID — кратко',a:'S — один класс, одна ответственность.\nO — открыт для расширения, закрыт для изменения.\nL — наследник заменяем базовым классом.\nI — много маленьких интерфейсов.\nD — зависимость от абстракций.'},
+{q:'Что такое инкапсуляция?',a:'Сокрытие реализации, наружу только нужный интерфейс. PageObject скрывает селекторы, API-клиент — HTTP-логику.'},
+{q:'Что такое полиморфизм?',a:'Один интерфейс — разная реализация. Разные типы авторизации, браузеры, окружения.'},
+{q:'Что такое композиция vs наследование?',a:'Композиция — класс содержит другие объекты. Лучше: меньше связности, легче тестировать, проще мокать.'},
+{q:'Что такое DRY и KISS?',a:'DRY — Don\'t Repeat Yourself, избегай дублирования.\nKISS — Keep It Simple, Stupid, не усложняй.\nООП — инструмент для соблюдения обоих.'},
+{q:'Статические и классовые методы',a:'@staticmethod — функция в классе без self/cls.\n@classmethod — получает cls, работает с классом:\nUser.from_api(data)'},
+{q:'Что такое if __name__ == "__main__"?',a:'Запускает код только при прямом запуске файла, не при импорте.'},
+{q:'Разница == и is?',a:'is — идентичность (один и тот же объект в памяти).\n== — равенство значений.'},
+]},
+{id:'cicd',name:'CI/CD',emoji:'⚙️',cards:[
+{q:'Что такое CI?',a:'Практика, при которой каждое изменение кода автоматически собирается, проверяется тестами и анализируется. Задачи: раннее обнаружение дефектов, контроль качества, ускорение разработки.'},
+{q:'Чем CI отличается от CD?',a:'CI — проверка качества изменений.\nCD — автоматическая доставка сборки в окружения.\nCI отвечает: можно ли деплоить этот код?'},
+{q:'Принципы CI',a:'Частые коммиты, автоматический запуск по триггерам, быстрый фидбэк, идемпотентность, повторяемость среды.'},
+{q:'Что происходит после push в репозиторий?',a:'Триггер → checkout → подготовка окружения → зависимости → статический анализ → тесты → отчёты → артефакты → уведомление.'},
+{q:'Обязательные стадии CI',a:'checkout, статический анализ, build, тесты, артефакты, уведомление.'},
+{q:'Как разделить CI для unit, API и UI тестов?',a:'unit — всегда и быстро.\nAPI — после build.\nUI — отдельно, параллельно или nightly.'},
+{q:'Как передавать данные между стадиями CI?',a:'artifacts, cache, environment variables, files.'},
+{q:'Как интегрировать автотесты в CI?',a:'Отдельный job, запуск через CLI, контроль кода выхода, генерация отчётов.'},
+{q:'Как передавать параметры запуска тестов через CI?',a:'CI variables, CLI flags, config files.'},
+{q:'Почему flaky-тесты опасны для CI?',a:'Снижают доверие к CI, блокируют релизы, маскируют реальные баги.'},
+{q:'Как выявлять flaky-тесты в CI?',a:'Повторные прогоны, анализ истории падений, отдельные flaky-jobs, статистика падений.'},
+{q:'Что делать, если тесты падают только на CI?',a:'Проверить окружение, версии зависимостей, тайминги, параллелизм, ресурсы, логи CI, подготовку данных.'},
+{q:'Как работать с секретами в CI?',a:'Secret variables, Vault, read-only доступ. Никогда не в репозиторий.'},
+{q:'Почему нельзя хранить токены в репозитории?',a:'Утечки, нарушение безопасности, история git не удаляется.'},
+{q:'Как управлять тестовыми данными в CI?',a:'Генерация через data generator, фикстуры, cleanup/teardown, уникальные данные для каждого теста.'},
+{q:'Как обеспечить идемпотентность тестов?',a:'Изоляция данных, уникальные сущности, setup/teardown.'},
+{q:'Как поднять временное окружение для тестов?',a:'docker compose, временные стенды, Kubernetes манифесты.'},
+{q:'Как дебажить упавший CI пайплайн?',a:'Логи CI, повторный запуск, локальное воспроизведение, анализ логов окружения.'},
+{q:'Как отличить баг в тесте от бага в продукте?',a:'Локальное воспроизведение, логи, повторяемость.'},
+{q:'Антипаттерны CI',a:'Один огромный job без декомпозиции, UI-тесты на каждый коммит, хардкод секретов, отсутствие отчётов и метрик.'},
+{q:'Как масштабировать CI для большого проекта?',a:'Разделение по маркерам, кэширование, параллельный запуск, разделение пайплайнов, ночные прогоны.'},
+]},
+{id:'patterns',name:'Паттерны',emoji:'🏗️',cards:[
+{q:'Page Object — суть и зачем?',a:'Вынос логики взаимодействия с UI-элементами в отдельные классы страницы. Каждая страница инкапсулирует локаторы и действия.\n\nЗачем:\n— Тесты становятся чистыми\n— Уменьшается дублирование (локаторы переиспользуемы)\n— При изменениях меняется только Page-класс, не сами тесты'},
+{q:'Step Object — суть и зачем?',a:'Вынос логических шагов теста в отдельные классы или методы. Описывает ЧТО делает пользователь, а не КАК это реализовано.\n\nЗачем:\n— Удобен для отчётов Allure\n— Повышает читаемость тестов\n— Шаги можно переиспользовать в разных тестах'},
+{q:'Factory (Фабрика) — суть и зачем?',a:'Централизованное создание объектов с нужными параметрами.\n\nЗачем:\n— Упрощает создание тестовых данных\n— Делает тесты независимыми\n— Можно параметризировать для разных сценариев'},
+{q:'Singleton — суть и зачем?',a:'Гарантирует, что класс имеет только один экземпляр во всём приложении. В тестах используется для глобального конфига, логгера, соединения с БД.\n\nЗачем:\n— Один объект конфигурации на всё приложение\n— Данные загружаются один раз'},
+{q:'Strategy — суть и зачем?',a:'Позволяет подменять алгоритмы поведения во время выполнения. В автотестах: разные способы валидации, авторизации, оплаты.\n\nЗачем:\n— Гибко меняем алгоритм без изменения теста\n— Тест параметризируется типом стратегии'},
+{q:'Adapter — суть и зачем?',a:'Оборачивает объект с одним интерфейсом и переводит его в другой формат. Позволяет использовать объекты с несовместимыми интерфейсами вместе.\n\nЗачем:\n— Не менять логику теста при смене источника данных\n— Унифицировать данные из UI и API для сравнения'},
+{q:'Decorator (паттерн) — суть и зачем?',a:'Дополняет функциональность без изменения логики исходного кода. В тестах: логирование, тайминг, Allure-обёртки.\n\nЗачем:\n— Не переписывать изначальный код\n— Изящно добавить новую функциональность'},
+{q:'Чем отличается Page Object от Step Object?',a:'Page Object — инкапсулирует локаторы и действия с UI-элементами конкретной страницы. Отвечает на вопрос КАК взаимодействовать.\n\nStep Object — инкапсулирует бизнес-шаги пользователя. Отвечает на вопрос ЧТО делает пользователь.\n\nStep Object использует Page Object внутри себя.'},
+{q:'Когда использовать Factory вместо прямого создания объектов?',a:'Когда:\n— Нужно создавать много однотипных объектов с разными параметрами\n— Логика создания сложная и должна быть централизована\n— Хочешь скрыть детали создания от потребителя\n— Нужна параметризация тестовых данных (faker + factory)'},
+{q:'Когда применяется паттерн Adapter в автотестах?',a:'Когда нужно сравнить данные из разных источников с разными форматами:\n— UI отдаёт "$123.45" / "26 Oct 2025"\n— API отдаёт 12345 (центы) / "2025-10-26T15:30:00Z"\n\nАдаптер приводит оба к единому формату для assert-а.'},
+{q:'Паттерн Strategy vs простой if/else — в чём разница?',a:'if/else:\n— Логика разрастается в одном месте\n— Сложно расширять\n— Нарушает Open/Closed принцип\n\nStrategy:\n— Каждый алгоритм в своём классе\n— Легко добавить новую стратегию без изменения существующего кода\n— Тест не знает деталей реализации'},
+]},
+];
+
+// Load custom cards from localStorage
+function loadCustom(){
+  try{ return JSON.parse(localStorage.getItem('custom_cards') || '[]'); }
+  catch(e){ return []; }
+}
+function saveCustom(cards){
+  localStorage.setItem('custom_cards', JSON.stringify(cards));
+}
+function loadSeen(){
+  try{ return JSON.parse(localStorage.getItem('seen_cards') || '{}'); }
+  catch(e){ return {}; }
+}
+function saveSeen(s){
+  localStorage.setItem('seen_cards', JSON.stringify(s));
+}
+
+let customCards = loadCustom();
+let seenCards = loadSeen();
+let currentFilter = 'all';
+let searchQ = '';
+
+// Build flat all-cards list with section info
+function allCards(){
+  const arr = [];
+  SECTIONS.forEach(sec => {
+    sec.cards.forEach((c,i) => arr.push({...c, sectionId:sec.id, sectionName:sec.name, isCustom:false, uid:`${sec.id}_${i}`}));
+  });
+  customCards.forEach((c,i) => arr.push({...c, isCustom:true, uid:`custom_${i}`}));
+  return arr;
+}
+
+function filteredCards(){
+  const all = allCards();
+  return all.filter(c => {
+    const matchFilter = currentFilter==='all' || c.sectionId===currentFilter;
+    const q = searchQ.toLowerCase();
+    const matchSearch = !q || c.q.toLowerCase().includes(q) || c.a.toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+}
+
+function renderFilters(){
+  const el = document.getElementById('filters');
+  const all = allCards();
+  // Count per section
+  const counts = {};
+  SECTIONS.forEach(s => { counts[s.id] = s.cards.length; });
+  if(customCards.length) counts['custom'] = customCards.length;
+
+  const btns = [
+    {id:'all', label:`Все (${all.length})`},
+    ...SECTIONS.map(s => ({id:s.id, label:`${s.emoji} ${s.name} (${s.cards.length})`})),
+  ];
+  if(customCards.length){
+    btns.push({id:'custom', label:`⭐ Мои (${customCards.length})`});
+  }
+  el.innerHTML = btns.map(b =>
+    `<button class="fbtn${currentFilter===b.id?' active':''}" data-id="${b.id}">${b.label}</button>`
+  ).join('');
+  el.querySelectorAll('.fbtn').forEach(btn => {
+    btn.onclick = ()=>{ currentFilter=btn.dataset.id; render(); };
+  });
+}
+
+function renderStats(){
+  const cards = filteredCards();
+  const total = cards.length;
+  const seenCount = cards.filter(c => seenCards[c.uid]).length;
+  const pct = total ? Math.round(seenCount/total*100) : 0;
+  document.getElementById('pf').style.width = pct+'%';
+  document.getElementById('st').textContent = `Просмотрено: ${seenCount} из ${total} (${pct}%)`;
+}
+
+function renderCards(cards, container){
+  if(!cards.length){
+    container.innerHTML = '<div class="empty">😕 Ничего не найдено</div>';
+    return;
+  }
+  container.innerHTML = cards.map((c,idx) => {
+    const seen = seenCards[c.uid];
+    const isCustom = c.isCustom;
+    return `<div class="card${seen?' flipped':''}" data-uid="${c.uid}" data-idx="${idx}">
+      ${isCustom?`<button class="del-btn" data-uid="${c.uid}" title="Удалить">✕</button>`:''}
+      <div class="ci">
+        <div class="cf">
+          <div>
+            <div class="ctopic">${c.sectionName||'Мои карточки'}</div>
+            <div class="cq">${escHtml(c.q)}</div>
+          </div>
+          <div class="chint">👆 Нажмите, чтобы увидеть ответ</div>
+        </div>
+        <div class="cb">
+          <div class="alabel">Ответ</div>
+          <div class="ca">${escHtml(c.a)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Click handlers
+  container.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', function(e){
+      if(e.target.classList.contains('del-btn')) return;
+      this.classList.toggle('flipped');
+      const uid = this.dataset.uid;
+      if(this.classList.contains('flipped')){
+        seenCards[uid] = 1;
+      } else {
+        delete seenCards[uid];
+      }
+      saveSeen(seenCards);
+      renderStats();
+    });
+  });
+
+  container.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const uid = this.dataset.uid;
+      const idx = parseInt(uid.replace('custom_',''));
+      if(confirm('Удалить карточку?')){
+        customCards.splice(idx,1);
+        saveCustom(customCards);
+        render();
+      }
+    });
+  });
+}
+
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function render(){
+  const main = document.getElementById('main');
+  const cards = filteredCards();
+
+  renderFilters();
+  renderStats();
+
+  if(currentFilter === 'all' && !searchQ){
+    // Group by section
+    let html = '';
+    const sections = [...SECTIONS];
+    if(customCards.length){
+      sections.push({id:'custom', name:'Мои карточки', emoji:'⭐', cards:customCards});
+    }
+    main.innerHTML = sections.map(s => `
+      <div class="sec-title">${s.emoji} ${s.name} <span class="cnt">${s.cards.length}</span></div>
+      <div class="grid" id="grid_${s.id}"></div>
+    `).join('');
+
+    sections.forEach(sec => {
+      const grid = document.getElementById('grid_'+sec.id);
+      const secCards = allCards().filter(c => c.sectionId===sec.id);
+      renderCards(secCards, grid);
+    });
+  } else {
+    main.innerHTML = `
+      <div class="sec-title">🔍 ${cards.length} карточек <span class="cnt">${currentFilter==='all'?'все темы':currentFilter}</span></div>
+      <div class="grid" id="maingrid"></div>
+    `;
+    renderCards(cards, document.getElementById('maingrid'));
+  }
+}
+
+// Search
+document.getElementById('si').addEventListener('input', function(){
+  searchQ = this.value.trim();
+  render();
+});
+
+// Add card modal
+const ov = document.getElementById('ov');
+const mt = document.getElementById('mt');
+document.getElementById('addBtn').onclick = ()=>{
+  // Populate topic select
+  const topics = SECTIONS.map(s => s.id);
+  mt.innerHTML = SECTIONS.map(s => `<option value="${s.id}">${s.emoji} ${s.name}</option>`).join('') +
+    '<option value="custom">⭐ Мои карточки</option>';
+  if(currentFilter !== 'all' && currentFilter !== 'custom'){
+    mt.value = currentFilter;
+  }
+  document.getElementById('mq').value = '';
+  document.getElementById('ma').value = '';
+  ov.classList.add('open');
+};
+document.getElementById('cn').onclick = ()=> ov.classList.remove('open');
+ov.onclick = (e)=>{ if(e.target===ov) ov.classList.remove('open'); };
+
+document.getElementById('sv').onclick = ()=>{
+  const q = document.getElementById('mq').value.trim();
+  const a = document.getElementById('ma').value.trim();
+  const sectionId = mt.value;
+  if(!q||!a){ alert('Заполните вопрос и ответ'); return; }
+
+  const sec = SECTIONS.find(s=>s.id===sectionId);
+  const newCard = {
+    q, a,
+    sectionId: sectionId,
+    sectionName: sec ? sec.name : 'Мои карточки',
+    isCustom: true
+  };
+  customCards.push(newCard);
+  saveCustom(customCards);
+  ov.classList.remove('open');
+  render();
+};
+
+// Init
+render();
+
+// ========== TRAINING MODE ==========
+let tQueue = [], tTotal = 0, tCorrect = 0, tWrong = 0, tFlipped = false, tAnimating = false;
+
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-.5); }
+
+let tCount = 15;
+function startTraining(){
+  const cards = allCards();
+  const pool = shuffle(cards).slice(0, tCount);
+  tQueue = pool;
+  tTotal = pool.length;
+  tCorrect = 0; tWrong = 0; tFlipped = false;
+  document.getElementById('tfinish').classList.remove('visible');
+  document.getElementById('tcard').style.display = 'flex';
+  document.getElementById('thints').style.display = 'flex';
+  document.getElementById('tactions').style.display = 'flex';
+  document.getElementById('tg1').style.display = 'block';
+  document.getElementById('tg2').style.display = 'block';
+  document.getElementById('tov').classList.add('open');
+  showTCard();
+}
+
+function showTCard(){
+  if(!tQueue.length){ showTFinish(); return; }
+  tFlipped = false; tAnimating = false;
+  const c = tQueue[0];
+  const card = document.getElementById('tcard');
+  card.style.transform = '';
+  card.style.opacity = '1';
+  document.getElementById('ttopic').textContent = c.sectionName || 'Мои карточки';
+  document.getElementById('tq').textContent = c.q;
+  document.getElementById('tatext').textContent = c.a;
+  document.getElementById('tans').classList.remove('visible');
+  document.getElementById('thint').style.display = 'block';
+  document.getElementById('tind-l').style.opacity = '0';
+  document.getElementById('tind-r').style.opacity = '0';
+  document.getElementById('tno').disabled = true;
+  document.getElementById('tyes').disabled = true;
+  updateTProgress();
+}
+
+function flipTCard(){
+  if(tFlipped || tAnimating) return;
+  tFlipped = true;
+  document.getElementById('tans').classList.add('visible');
+  document.getElementById('thint').style.display = 'none';
+  document.getElementById('tno').disabled = false;
+  document.getElementById('tyes').disabled = false;
+}
+
+function updateTProgress(){
+  const done = tTotal - tQueue.length;
+  const pct = tTotal ? Math.round(done/tTotal*100) : 0;
+  document.getElementById('tpf').style.width = pct+'%';
+  document.getElementById('tcnt').textContent = `${done} / ${tTotal}`;
+}
+
+function swipeCard(direction){
+  // direction: 'left' = не знал, 'right' = знал
+  if(tAnimating) return;
+  if(!tFlipped){ flipTCard(); return; } // first tap flips
+  tAnimating = true;
+  const card = document.getElementById('tcard');
+  const dx = direction === 'right' ? 500 : -500;
+  card.style.transition = 'transform .35s ease, opacity .35s';
+  card.style.transform = `translateX(${dx}px) rotate(${direction==='right'?15:-15}deg)`;
+  card.style.opacity = '0';
+
+  if(direction === 'right'){ tCorrect++; }
+  else { tWrong++; tQueue.push(tQueue[0]); } // push to end
+
+  tQueue.shift();
+
+  setTimeout(()=>{
+    card.style.transition = 'none';
+    card.style.transform = '';
+    card.style.opacity = '1';
+    showTCard();
+  }, 380);
+}
+
+function showTFinish(){
+  document.getElementById('tcard').style.display = 'none';
+  document.getElementById('thints').style.display = 'none';
+  document.getElementById('tactions').style.display = 'none';
+  document.getElementById('tg1').style.display = 'none';
+  document.getElementById('tg2').style.display = 'none';
+  document.getElementById('tfinmsg').textContent = `✅ Знал: ${tCorrect}   ❌ Повторял: ${tWrong}`;
+  document.getElementById('tfinish').classList.add('visible');
+}
+
+// Button handlers
+document.getElementById('trainBtn15').onclick = ()=>{ tCount=15; startTraining(); };
+document.getElementById('trainBtn30').onclick = ()=>{ tCount=30; startTraining(); };
+document.getElementById('tclose').onclick = ()=> document.getElementById('tov').classList.remove('open');
+document.getElementById('tno').onclick = ()=>{ if(tFlipped) swipeCard('left'); else flipTCard(); };
+document.getElementById('tyes').onclick = ()=>{ if(tFlipped) swipeCard('right'); else flipTCard(); };
+document.getElementById('tfinrepeat').onclick = startTraining;
+document.getElementById('tfinclose').onclick = ()=> document.getElementById('tov').classList.remove('open');
+
+// Click card to flip
+document.getElementById('tcard').addEventListener('click', function(e){
+  if(tAnimating) return;
+  if(!tFlipped){ flipTCard(); }
+});
+
+// Swipe / drag handling
+(function(){
+  const card = document.getElementById('tcard');
+  let startX = 0, startY = 0, curX = 0, isDragging = false, didMove = false;
+  const THRESHOLD = 90;
+
+  function onStart(x, y){
+    if(tAnimating || !tFlipped) return;
+    startX = x; startY = y; curX = 0; isDragging = true; didMove = false;
+    card.classList.add('dragging');
+  }
+  function onMove(x, y){
+    if(!isDragging) return;
+    const dx = x - startX;
+    const dy = y - startY;
+    if(!didMove && Math.abs(dy) > Math.abs(dx) + 10){ isDragging = false; return; } // vertical scroll
+    didMove = true;
+    curX = dx;
+    const rot = dx * 0.08;
+    card.style.transform = `translateX(${dx}px) rotate(${rot}deg)`;
+    const pct = Math.min(Math.abs(dx) / THRESHOLD, 1);
+    if(dx < 0){
+      document.getElementById('tind-l').style.opacity = pct;
+      document.getElementById('tind-r').style.opacity = 0;
+    } else {
+      document.getElementById('tind-r').style.opacity = pct;
+      document.getElementById('tind-l').style.opacity = 0;
+    }
+  }
+  function onEnd(){
+    if(!isDragging) return;
+    isDragging = false;
+    card.classList.remove('dragging');
+    if(!didMove){ return; }
+    if(Math.abs(curX) >= THRESHOLD){
+      swipeCard(curX > 0 ? 'right' : 'left');
+    } else {
+      // snap back
+      card.style.transition = 'transform .3s ease';
+      card.style.transform = '';
+      document.getElementById('tind-l').style.opacity = 0;
+      document.getElementById('tind-r').style.opacity = 0;
+      setTimeout(()=>{ card.style.transition=''; }, 300);
+    }
+  }
+
+  // Touch
+  card.addEventListener('touchstart', e=>{ const t=e.touches[0]; onStart(t.clientX, t.clientY); }, {passive:true});
+  card.addEventListener('touchmove', e=>{ const t=e.touches[0]; onMove(t.clientX, t.clientY); }, {passive:true});
+  card.addEventListener('touchend', onEnd, {passive:true});
+
+  // Mouse
+  card.addEventListener('mousedown', e=>{ onStart(e.clientX, e.clientY); e.preventDefault(); });
+  document.addEventListener('mousemove', e=>{ if(isDragging) onMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', ()=>{ if(isDragging) onEnd(); });
+})();
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e=>{
+  if(!document.getElementById('tov').classList.contains('open')) return;
+  if(e.key === 'ArrowLeft'){ swipeCard('left'); }
+  else if(e.key === 'ArrowRight'){ swipeCard('right'); }
+  else if(e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); if(!tFlipped) flipTCard(); }
+  else if(e.key === 'Escape'){ document.getElementById('tov').classList.remove('open'); }
+});
+</script>
+</body>
+</html>
