@@ -25,9 +25,17 @@ h1{font-size:17px;font-weight:700;color:var(--accent);margin-bottom:10px}
 .pbar{height:3px;background:var(--border);border-radius:2px;margin-top:8px}
 .pfill{height:100%;background:var(--accent2);border-radius:2px;transition:width .4s}
 .stats{font-size:11px;color:var(--muted);margin-top:4px}
-.train-btn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:7px 16px;border-radius:20px;border:none;background:linear-gradient(135deg,#6c63ff,#4ecca3);color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:transform .2s,opacity .2s}
+.train-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:20px;border:none;background:linear-gradient(135deg,#6c63ff,#4ecca3);color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:transform .2s,opacity .2s}
 .train-btn:hover{transform:scale(1.04);opacity:.9}
 .train-btn:active{transform:scale(.97)}
+.reset-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s}
+.reset-btn:hover{border-color:var(--danger);color:var(--danger)}
+.sec-train-btn{padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.sec-train-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+.weight-bar{display:flex;gap:2px;align-items:center;margin-top:5px}
+.weight-dot{width:6px;height:6px;border-radius:50%;background:var(--border)}
+.weight-dot.on{background:var(--accent2)}
+.weight-dot.low{background:var(--danger)}
 
 /* Training overlay */
 #tov{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;flex-direction:column;align-items:center;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .25s}
@@ -143,9 +151,10 @@ textarea:focus,select:focus{border-color:var(--accent)}
     <div class="filters" id="filters"></div>
     <div class="pbar"><div class="pfill" id="pf" style="width:0%"></div></div>
     <div class="stats" id="st"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
       <button class="train-btn" id="trainBtn15">⚡ 15 вопросов</button>
       <button class="train-btn" id="trainBtn30">🎯 30 вопросов</button>
+      <button class="reset-btn" id="resetWeightsBtn" title="Сбросить частоту появления карточек">↺ Сбросить частоту</button>
     </div>
   </div>
 </header>
@@ -723,7 +732,10 @@ function render(){
       sections.push({id:'custom', name:'Мои карточки', emoji:'⭐', cards:customCards});
     }
     main.innerHTML = sections.map(s => `
-      <div class="sec-title">${s.emoji} ${s.name} <span class="cnt">${s.cards.length}</span></div>
+      <div class="sec-title" style="justify-content:space-between">
+        <span>${s.emoji} ${s.name} <span class="cnt">${s.cards.length}</span></span>
+        <button class="sec-train-btn" data-sec="${s.id}">🎲 3 вопроса</button>
+      </div>
       <div class="grid" id="grid_${s.id}"></div>
     `).join('');
 
@@ -731,6 +743,10 @@ function render(){
       const grid = document.getElementById('grid_'+sec.id);
       const secCards = allCards().filter(c => c.sectionId===sec.id);
       renderCards(secCards, grid);
+    });
+
+    main.querySelectorAll('.sec-train-btn').forEach(btn => {
+      btn.onclick = ()=>{ tSectionFilter = btn.dataset.sec; tCount = 3; startTraining(); };
     });
   } else {
     main.innerHTML = `
@@ -787,17 +803,40 @@ document.getElementById('sv').onclick = ()=>{
 // Init
 render();
 
+// ========== WEIGHTS (spaced repetition) ==========
+let cardWeights = {};
+function loadWeights(){ try{ return JSON.parse(localStorage.getItem('card_weights')||'{}'); }catch(e){ return {}; } }
+function saveWeights(){ localStorage.setItem('card_weights', JSON.stringify(cardWeights)); }
+function resetWeights(){ cardWeights = {}; saveWeights(); alert('Частота появления карточек сброшена.'); }
+function getWeight(uid){ return cardWeights[uid] || 1.0; }
+function updateWeight(uid, knew){
+  const w = getWeight(uid);
+  cardWeights[uid] = knew ? Math.max(0.15, w * 0.5) : Math.min(2.0, w * 1.8);
+  saveWeights();
+}
+// Weighted random pick of n items (reservoir sampling with weights)
+function weightedPick(pool, n){
+  if(pool.length <= n) return [...pool];
+  const scored = pool.map(c => ({ c, s: Math.random() ** (1 / getWeight(c.uid)) }));
+  scored.sort((a,b) => b.s - a.s);
+  return scored.slice(0, n).map(x => x.c);
+}
+cardWeights = loadWeights();
+
 // ========== TRAINING MODE ==========
 let tQueue = [], tTotal = 0, tCorrect = 0, tWrong = 0, tFlipped = false, tAnimating = false;
+let tSectionFilter = null;
 
 function shuffle(arr){ return [...arr].sort(()=>Math.random()-.5); }
 
 let tCount = 15;
 function startTraining(){
-  const cards = allCards();
-  const pool = shuffle(cards).slice(0, tCount);
-  tQueue = pool;
-  tTotal = pool.length;
+  const cards = tSectionFilter
+    ? allCards().filter(c => c.sectionId === tSectionFilter)
+    : allCards();
+  const pool = weightedPick(cards, tCount);
+  tQueue = shuffle(pool);
+  tTotal = tQueue.length;
   tCorrect = 0; tWrong = 0; tFlipped = false;
   document.getElementById('tfinish').classList.remove('visible');
   document.getElementById('tcard').style.display = 'flex';
@@ -855,8 +894,9 @@ function swipeCard(direction){
   card.style.transform = `translateX(${dx}px) rotate(${direction==='right'?15:-15}deg)`;
   card.style.opacity = '0';
 
-  if(direction === 'right'){ tCorrect++; }
-  else { tWrong++; tQueue.push(tQueue[0]); } // push to end
+  const answered = tQueue[0];
+  if(direction === 'right'){ tCorrect++; updateWeight(answered.uid, true); }
+  else { tWrong++; updateWeight(answered.uid, false); tQueue.push(answered); } // push to end
 
   tQueue.shift();
 
@@ -879,13 +919,14 @@ function showTFinish(){
 }
 
 // Button handlers
-document.getElementById('trainBtn15').onclick = ()=>{ tCount=15; startTraining(); };
-document.getElementById('trainBtn30').onclick = ()=>{ tCount=30; startTraining(); };
-document.getElementById('tclose').onclick = ()=> document.getElementById('tov').classList.remove('open');
+document.getElementById('trainBtn15').onclick = ()=>{ tSectionFilter=null; tCount=15; startTraining(); };
+document.getElementById('trainBtn30').onclick = ()=>{ tSectionFilter=null; tCount=30; startTraining(); };
+document.getElementById('resetWeightsBtn').onclick = resetWeights;
+document.getElementById('tclose').onclick = ()=>{ tSectionFilter=null; document.getElementById('tov').classList.remove('open'); };
 document.getElementById('tno').onclick = ()=>{ if(tFlipped) swipeCard('left'); else flipTCard(); };
 document.getElementById('tyes').onclick = ()=>{ if(tFlipped) swipeCard('right'); else flipTCard(); };
 document.getElementById('tfinrepeat').onclick = startTraining;
-document.getElementById('tfinclose').onclick = ()=> document.getElementById('tov').classList.remove('open');
+document.getElementById('tfinclose').onclick = ()=>{ tSectionFilter=null; document.getElementById('tov').classList.remove('open'); };
 
 // Click card to flip
 document.getElementById('tcard').addEventListener('click', function(e){
